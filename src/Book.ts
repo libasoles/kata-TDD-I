@@ -1,4 +1,5 @@
-export default class Book {
+// export default class Book {
 
-}
+// }
 
+export type Book = string;
