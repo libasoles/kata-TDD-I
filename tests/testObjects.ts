@@ -43,9 +43,17 @@ export function nonEmptyCart(): Cart {
 }
 
 export function validCreditCard(): CreditCard {
-  return new CreditCard();
+  return new CreditCard({ month: 1, year: 9999 });
 }
 
 export function expiredCreditCard(): CreditCard {
-  return new CreditCard();
+  return new CreditCard({ month: 1, year: 1900 });
+}
+
+export function validDate(): Date {
+  return new Date(2020, 1, 1);
+}
+
+export function invalidDate(): Date {
+  return new Date(1899, 1, 1);
 }
