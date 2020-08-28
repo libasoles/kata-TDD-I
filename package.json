@@ -9,6 +9,10 @@
     "typescript": "^3.8.0"
   },
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "prettier": "^2.1.1"
   }
 }
