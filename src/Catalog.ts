@@ -5,15 +5,19 @@ export default class Catalog {
 
   constructor(private readonly books: Array<{ book: Book, price: number }>) {}
 
-  includes(aBook: Book) {
+  includes(aBook: Book): boolean {
     return this.find(aBook) !== undefined;
   }
 
   priceOf(aBook: Book): number {
-    if (!this.includes(aBook)) {
-      throw new Error(Catalog.BOOK_NOT_IN_CATALOG)
-    }
+    this.assertBookIsIncluded(aBook);
     return this.find(aBook).price;
+  }
+
+  private assertBookIsIncluded(aBook: Book) {
+    if (!this.includes(aBook)) {
+      throw new Error(Catalog.BOOK_NOT_IN_CATALOG);
+    }
   }
 
   private find(aBook: Book) {
