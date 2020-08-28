@@ -1,37 +1,113 @@
-
-// CHECKOUT
-// 3) Registrar la venta en un "Libro de ventas"
-// 4) El cliente se lleva el ticket de la "venta"
-// 5) Realizar las validaciones de la tarjeta de credito (principalmente la fecha de expiracion)
-// 6) 
-
-import { newCart, validBook, anotherValidBook, validBookPrice, anotherValidBookPrice, nonEmptyCart, validCreditCard, expiredCreditCard } from "./testObjects";
+import {
+  newCart,
+  validBook,
+  invalidDate,
+  anotherValidBook,
+  validBookPrice,
+  anotherValidBookPrice,
+  nonEmptyCart,
+  unexpiredCreditCard,
+  expiredCreditCard,
+  validDate,
+  unavailableMerchantProcessor,
+  merchantProcessorThatRejectsCard,
+  validMerchantProcessor,
+} from "./testObjects";
 import Cashier from "../src/Cashier";
+import MerchantProcessor from "../src/MerchantProcessor";
 
-test("Cannot check out with an empty cart", () => {
-  const cart = newCart();
+describe("Checkout process", () => {
+  test("Cannot check out with an empty cart", () => {
+    const cart = newCart();
 
-  expect(() => {
-    new Cashier(cart, validCreditCard())
-  }).toThrowError(Cashier.CART_MUST_NOT_BE_EMPTY);
-});
+    expect(() => {
+      new Cashier(
+        cart,
+        unexpiredCreditCard(),
+        validDate(),
+        validMerchantProcessor()
+      );
+    }).toThrowError(Cashier.CART_MUST_NOT_BE_EMPTY);
+  });
 
-test("When check out, the total must be correct", () => {
-  const cart = newCart();
-  cart.add(validBook(), 2);
-  cart.add(anotherValidBook(), 1);
+  test("When check out, the total must be correct", () => {
+    const cart = newCart();
+    cart.add(validBook(), 2);
+    cart.add(anotherValidBook(), 1);
 
-  const cashier = new Cashier(cart, validCreditCard());
-  const total = cashier.checkOut();
+    const cashier = new Cashier(
+      cart,
+      unexpiredCreditCard(),
+      validDate(),
+      validMerchantProcessor()
+    );
+    const total = cashier.checkOut();
 
-  expect(total).toBe(2 * validBookPrice() + 1 * anotherValidBookPrice());
-});
+    expect(total).toBe(2 * validBookPrice() + 1 * anotherValidBookPrice());
+  });
 
-test("Cannot check out with an expired credit card", () => {
-  const cart = nonEmptyCart();
-  const creditCard = expiredCreditCard();
+  test("Cannot check out with an expired credit card", () => {
+    const cart = nonEmptyCart();
+    const creditCard = expiredCreditCard();
 
-  expect(() => {
-    new Cashier(cart, creditCard);
-  }).toThrowError(Cashier.CERDIT_CARD_IS_EXPIRED);
+    expect(() => {
+      new Cashier(cart, creditCard, validDate(), validMerchantProcessor());
+    }).toThrowError(Cashier.CREDIT_CARD_IS_EXPIRED);
+  });
+
+  test("Can check out with an expired credit card if the date is correct", () => {
+    const cart = nonEmptyCart();
+    const creditCard = expiredCreditCard();
+
+    new Cashier(cart, creditCard, invalidDate(), validMerchantProcessor());
+  });
+
+  test("Cannot checkout when Merchant Processor is down", () => {
+    const cart = nonEmptyCart();
+    const creditCard = unexpiredCreditCard();
+    const merchantProcessor = unavailableMerchantProcessor();
+    const cashier = new Cashier(
+      cart,
+      creditCard,
+      validDate(),
+      merchantProcessor
+    );
+
+    expect(() => {
+      cashier.checkOut();
+    }).toThrowError(MerchantProcessor.MERCHANT_PROCESSOR_IS_NOT_AVAILABLE);
+  });
+
+  test("Merchant process rejects invalid credit card", () => {
+    const cart = nonEmptyCart();
+    const creditCard = unexpiredCreditCard();
+    const merchantProcessor = merchantProcessorThatRejectsCard();
+    const cashier = new Cashier(
+      cart,
+      creditCard,
+      validDate(),
+      merchantProcessor
+    );
+
+    expect(() => {
+      cashier.checkOut();
+    }).toThrowError(MerchantProcessor.CREDIT_CARD_REJECTED);
+  });
+
+  test("Payment succeeded", () => {
+    const cart = nonEmptyCart();
+    const creditCard = unexpiredCreditCard();
+    const merchantProcessor = validMerchantProcessor();
+    const cashier = new Cashier(
+      cart,
+      creditCard,
+      validDate(),
+      merchantProcessor
+    );
+
+    const total = cashier.checkOut();
+
+    expect(merchantProcessor.creditCardUsed).toBe(creditCard);
+    expect(merchantProcessor.totalCharged).toBe(total);
+  });
 });
