@@ -1,8 +1,13 @@
 import Cart from "./Cart";
 import CreditCard from "./CreditCard";
-import MerchantProcessor from "./MerchantProcessor";
+import { MerchantProcessor, TransactionId } from "./MerchantProcessor";
 
-export default class Cashier {
+export interface Receipt {
+  transactionId: TransactionId;
+  total: number;
+}
+
+export class Cashier {
   public static CART_MUST_NOT_BE_EMPTY = "Cart must not be empty";
   public static CREDIT_CARD_IS_EXPIRED = "Credit card is expired";
 
@@ -28,9 +33,9 @@ export default class Cashier {
     }
   }
 
-  checkOut(): number {
+  checkOut(): Receipt {
     const total = this.cart.total();
-    this.merchantProcessor.debit(this.creditCard, total);
-    return total;
+    const transactionId = this.merchantProcessor.debit(this.creditCard, total);
+    return { transactionId, total };
   }
 }

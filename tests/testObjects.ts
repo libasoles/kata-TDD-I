@@ -1,22 +1,36 @@
 import Cart from "../src/Cart";
 import Catalog from "../src/Catalog";
-import { Book } from "../src/Book";
+import { Book, ISBN } from "../src/Book";
 import CreditCard from "../src/CreditCard";
-import MerchantProcessor from "../src/MerchantProcessor";
+import { MerchantProcessor, TransactionId } from "../src/MerchantProcessor";
+import { TusLibros } from "../src/TusLibros";
+import { Clock } from "../src/Clock";
+
+export function validISBN(): ISBN {
+  return "<a valid ISBN>";
+}
+
+export function invalidISBN(): ISBN {
+  return "<an invalid ISBN>";
+}
+
+export function anotherValidISBN(): ISBN {
+  return "<another valid ISBN>";
+}
 
 export function validBook(): Book {
-  return "valid book";
+  return new Book(validISBN());
 }
 
 export function invalidBook(): Book {
-  return "invalid book";
+  return new Book(invalidISBN());
 }
 
 export function anotherValidBook(): Book {
-  return "another valid book";
+  return new Book(anotherValidISBN());
 }
 
-function catalog() {
+export function validCatalog(): Catalog {
   return new Catalog([
     { book: validBook(), price: validBookPrice() },
     { book: anotherValidBook(), price: anotherValidBookPrice() },
@@ -32,7 +46,19 @@ export function validBookPrice(): number {
 }
 
 export function newCart(): Cart {
-  return new Cart(catalog());
+  return new Cart(validCatalog());
+}
+
+export function newTusLibros(): TusLibros {
+  return new TusLibros(validCatalog(), systemClock(), validMerchantProcessor());
+}
+
+export function systemClock(): Clock {
+  return {
+    now() {
+      return new Date();
+    },
+  };
 }
 
 export function nonEmptyCart(): Cart {
@@ -59,21 +85,27 @@ export function invalidDate(): Date {
   return new Date(1899, 1, 1);
 }
 
-export function validMerchantProcessor() {
+export function validMerchantProcessor(): MerchantProcessor & {
+  creditCardUsed: CreditCard | null;
+  totalCharged: number | null;
+  lastTransactionId: TransactionId | null;
+} {
   return {
     creditCardUsed: null,
     totalCharged: null,
+    lastTransactionId: null,
     debit(creditCard: CreditCard, total: number) {
       this.creditCardUsed = creditCard;
       this.totalCharged = total;
-      return;
+      this.lastTransactionId = "<valid transaction id>";
+      return this.lastTransactionId;
     },
   };
 }
 
 export function unavailableMerchantProcessor(): MerchantProcessor {
   return {
-    debit(creditCard: CreditCard, total: number) {
+    debit(_creditCard: CreditCard, _total: number) {
       throw Error(MerchantProcessor.MERCHANT_PROCESSOR_IS_NOT_AVAILABLE);
     },
   };
@@ -81,8 +113,28 @@ export function unavailableMerchantProcessor(): MerchantProcessor {
 
 export function merchantProcessorThatRejectsCard(): MerchantProcessor {
   return {
-    debit(creditCard: CreditCard, total: number) {
+    debit(_creditCard: CreditCard, _total: number) {
       throw Error(MerchantProcessor.CREDIT_CARD_REJECTED);
     },
   };
+}
+
+export function invalidClientId(): string {
+  return "invalid client";
+}
+
+export function validClientId(): string {
+  return "client";
+}
+
+export function invalidPassword(): string {
+  return "invalid password";
+}
+
+export function validPassword(): string {
+  return "password";
+}
+
+export function invalidCartId(): string {
+  return invalidClientId();
 }

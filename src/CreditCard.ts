@@ -1,7 +1,6 @@
-export type MonthYear = { month: number, year: number };
+export type MonthYear = { month: number; year: number };
 
 export default class CreditCard {
-  
   constructor(private readonly expiration: MonthYear) {}
 
   isExpiredAt(aDate: Date): boolean {

@@ -40,7 +40,7 @@ describe("Purchase process", () => {
     const book = validBook();
 
     expect(() => cart.add(book, -1)).toThrowError(
-      Cart.QUANITY_MUST_BE_A_NATURAL
+      Cart.QUANTITY_MUST_BE_A_NATURAL
     );
   });
 
@@ -49,7 +49,7 @@ describe("Purchase process", () => {
     const book = validBook();
 
     expect(() => cart.add(book, 0)).toThrowError(
-      Cart.QUANITY_MUST_BE_A_NATURAL
+      Cart.QUANTITY_MUST_BE_A_NATURAL
     );
   });
 });

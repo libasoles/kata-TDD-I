@@ -1,5 +1,9 @@
-// export default class Book {
+export type ISBN = string;
 
-// }
+export class Book {
+  constructor(readonly isbn: ISBN) {}
 
-export type Book = string;
+  matchesISBN(isbn: ISBN): boolean {
+    return this.isbn === isbn;
+  }
+}

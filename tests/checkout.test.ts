@@ -13,8 +13,8 @@ import {
   merchantProcessorThatRejectsCard,
   validMerchantProcessor,
 } from "./testObjects";
-import Cashier from "../src/Cashier";
-import MerchantProcessor from "../src/MerchantProcessor";
+import { Cashier } from "../src/Cashier";
+import { MerchantProcessor } from "../src/MerchantProcessor";
 
 describe("Checkout process", () => {
   test("Cannot check out with an empty cart", () => {
@@ -41,9 +41,11 @@ describe("Checkout process", () => {
       validDate(),
       validMerchantProcessor()
     );
-    const total = cashier.checkOut();
+    const receipt = cashier.checkOut();
 
-    expect(total).toBe(2 * validBookPrice() + 1 * anotherValidBookPrice());
+    expect(receipt.total).toBe(
+      2 * validBookPrice() + 1 * anotherValidBookPrice()
+    );
   });
 
   test("Cannot check out with an expired credit card", () => {
@@ -105,9 +107,10 @@ describe("Checkout process", () => {
       merchantProcessor
     );
 
-    const total = cashier.checkOut();
+    const receipt = cashier.checkOut();
 
     expect(merchantProcessor.creditCardUsed).toBe(creditCard);
-    expect(merchantProcessor.totalCharged).toBe(total);
+    expect(merchantProcessor.totalCharged).toBe(receipt.total);
+    expect(merchantProcessor.lastTransactionId).toBe(receipt.transactionId);
   });
 });
