@@ -1,6 +1,6 @@
 import CreditCard from "./CreditCard";
 
-export type TransactionId = number;
+export type TransactionId = string;
 
 export abstract class MerchantProcessor {
   static MERCHANT_PROCESSOR_IS_NOT_AVAILABLE =

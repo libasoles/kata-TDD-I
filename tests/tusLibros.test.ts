@@ -1,6 +1,5 @@
-import Cart from "../src/Cart";
-import { Cashier } from "../src/Cashier";
-import Catalog from "../src/Catalog";
+import { ISBN } from "../src/Book";
+import { Ledger, Purchase } from "../src/Ledger";
 import { TusLibros } from "../src/TusLibros";
 import {
   anotherValidISBN,
@@ -14,6 +13,7 @@ import {
   unexpiredCreditCard,
   validCatalog,
   validClientId,
+  validContactBook,
   validISBN,
   validMerchantProcessor,
   validPassword,
@@ -74,7 +74,7 @@ describe("TusLibros", () => {
     const cartId = store.createCart(clientId, password);
 
     expect(() => store.addToCart(cartId, isbn, 1)).toThrowError(
-      Catalog.BOOK_NOT_IN_CATALOG
+      TusLibros.BOOK_NOT_IN_CATALOG
     );
   });
   test("A user cannot add a negative quantity of a book to his cart", () => {
@@ -85,7 +85,7 @@ describe("TusLibros", () => {
     const cartId = store.createCart(clientId, password);
 
     expect(() => store.addToCart(cartId, isbn, -1)).toThrowError(
-      Cart.QUANTITY_MUST_BE_A_NATURAL
+      TusLibros.QUANTITY_MUST_BE_A_NATURAL
     );
   });
   test("A user cannot add a zero quantity of a book to his cart", () => {
@@ -96,7 +96,7 @@ describe("TusLibros", () => {
     const cartId = store.createCart(clientId, password);
 
     expect(() => store.addToCart(cartId, isbn, 0)).toThrowError(
-      Cart.QUANTITY_MUST_BE_A_NATURAL
+      TusLibros.QUANTITY_MUST_BE_A_NATURAL
     );
   });
   test("A user cannot add a non natural quantity of a book to his cart", () => {
@@ -107,7 +107,7 @@ describe("TusLibros", () => {
     const cartId = store.createCart(clientId, password);
 
     expect(() => store.addToCart(cartId, isbn, 1 / 2)).toThrowError(
-      Cart.QUANTITY_MUST_BE_A_NATURAL
+      TusLibros.QUANTITY_MUST_BE_A_NATURAL
     );
   });
   test("A user cannot add to an invalid cart", () => {
@@ -129,7 +129,7 @@ describe("TusLibros", () => {
     store.addToCart(cartId, aISBN, 2);
     store.addToCart(cartId, anotherISBN, 1);
 
-    const cart = {};
+    const cart: Record<ISBN, number> = {};
     store.cartEntriesDo(cartId, (book, quantity) => {
       cart[book.isbn] = quantity;
     });
@@ -190,7 +190,7 @@ describe("TusLibros", () => {
     store.addToCart(cartId, anotherValidISBN(), 2);
 
     expect(() => store.checkOutCart(cartId, creditCard)).toThrowError(
-      Cashier.CREDIT_CARD_IS_EXPIRED
+      TusLibros.CREDIT_CARD_IS_EXPIRED
     );
   });
   test("A user can checkout his cart", () => {
@@ -198,7 +198,9 @@ describe("TusLibros", () => {
     const store = new TusLibros(
       validCatalog(),
       systemClock(),
-      merchantProcessor
+      merchantProcessor,
+      new Ledger(),
+      validContactBook()
     );
     const clientId = validClientId();
     const password = validPassword();
@@ -211,5 +213,54 @@ describe("TusLibros", () => {
     expect(store.checkOutCart(cartId, creditCard)).toBe(
       merchantProcessor.lastTransactionId
     );
+  });
+  test("An invalid client cannot list purchases", () => {
+    const store = newTusLibros();
+    expect(() =>
+      store.purchasesDo(invalidClientId(), invalidPassword(), () => {
+        throw new Error("this is an error!");
+      })
+    ).toThrowError(TusLibros.INVALID_CLIENT);
+  });
+  test("An client with invalid password cannot list purchases", () => {
+    const store = newTusLibros();
+    expect(() =>
+      store.purchasesDo(validClientId(), invalidPassword(), () => {
+        throw new Error("this is an error!");
+      })
+    ).toThrowError(TusLibros.INVALID_CLIENT);
+  });
+  test("A client without purchases lists no purchases", () => {
+    const store = newTusLibros();
+    const clientId = validClientId();
+    const password = validPassword();
+
+    const purchases: Purchase[] = [];
+    store.purchasesDo(clientId, password, (purchase) => {
+      purchases.push(purchase);
+    });
+
+    expect(purchases).toHaveLength(0);
+  });
+  test("A client with purchases should list them", () => {
+    const store = newTusLibros();
+    const clientId = validClientId();
+    const password = validPassword();
+    const cartId = store.createCart(clientId, password);
+
+    store.addToCart(cartId, validISBN(), 2);
+    store.checkOutCart(cartId, unexpiredCreditCard());
+
+    const anotherCartId = store.createCart(clientId, password);
+
+    store.addToCart(anotherCartId, anotherValidISBN(), 1);
+    store.checkOutCart(anotherCartId, unexpiredCreditCard());
+
+    const purchases: Purchase[] = [];
+    store.purchasesDo(clientId, password, (purchase) => {
+      purchases.push(purchase);
+    });
+
+    expect(purchases).toHaveLength(2);
   });
 });

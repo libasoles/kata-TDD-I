@@ -10,8 +10,11 @@ export default class Catalog {
   }
 
   priceOf(aBook: Book): number {
-    this.assertBookIsIncluded(aBook);
-    return this.find(aBook).price;
+    const catalogEntry = this.find(aBook);
+    if (catalogEntry) {
+      return catalogEntry.price;
+    }
+    throw new Error(Catalog.BOOK_NOT_IN_CATALOG);
   }
 
   findByISBN(isbn: ISBN): Book {
@@ -20,12 +23,6 @@ export default class Catalog {
       return catalogEntry.book;
     }
     throw new Error(Catalog.BOOK_NOT_IN_CATALOG);
-  }
-
-  private assertBookIsIncluded(aBook: Book) {
-    if (!this.includes(aBook)) {
-      throw new Error(Catalog.BOOK_NOT_IN_CATALOG);
-    }
   }
 
   private find(aBook: Book) {

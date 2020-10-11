@@ -3,8 +3,10 @@ import Catalog from "../src/Catalog";
 import { Book, ISBN } from "../src/Book";
 import CreditCard from "../src/CreditCard";
 import { MerchantProcessor, TransactionId } from "../src/MerchantProcessor";
-import { TusLibros } from "../src/TusLibros";
+import { CartId, ClientId, Password, TusLibros } from "../src/TusLibros";
 import { Clock } from "../src/Clock";
+import { Ledger } from "../src/Ledger";
+import { ContactBook } from "../src/ContactBook";
 
 export function validISBN(): ISBN {
   return "<a valid ISBN>";
@@ -50,7 +52,19 @@ export function newCart(): Cart {
 }
 
 export function newTusLibros(): TusLibros {
-  return new TusLibros(validCatalog(), systemClock(), validMerchantProcessor());
+  return new TusLibros(
+    validCatalog(),
+    systemClock(),
+    validMerchantProcessor(),
+    new Ledger(),
+    validContactBook()
+  );
+}
+
+export function validContactBook(): ContactBook {
+  const contactBook = new ContactBook();
+  contactBook.addClient({}, validPassword());
+  return contactBook;
 }
 
 export function systemClock(): Clock {
@@ -119,22 +133,22 @@ export function merchantProcessorThatRejectsCard(): MerchantProcessor {
   };
 }
 
-export function invalidClientId(): string {
+export function invalidClientId(): ClientId {
   return "invalid client";
 }
 
-export function validClientId(): string {
-  return "client";
+export function validClientId(): ClientId {
+  return "1";
 }
 
-export function invalidPassword(): string {
+export function invalidPassword(): Password {
   return "invalid password";
 }
 
-export function validPassword(): string {
+export function validPassword(): Password {
   return "password";
 }
 
-export function invalidCartId(): string {
+export function invalidCartId(): CartId {
   return invalidClientId();
 }
