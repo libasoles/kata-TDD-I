@@ -51,13 +51,21 @@ export function newCart(): Cart {
   return new Cart(validCatalog());
 }
 
-export function newTusLibros(): TusLibros {
+export function newTusLibros(
+  opts: Partial<{
+    catalog: Catalog;
+    clock: Clock;
+    merchantProcessor: MerchantProcessor;
+    ledger: Ledger;
+    contactBook: ContactBook;
+  }> = {}
+): TusLibros {
   return new TusLibros(
-    validCatalog(),
-    systemClock(),
-    validMerchantProcessor(),
-    new Ledger(),
-    validContactBook()
+    opts?.catalog ?? validCatalog(),
+    opts?.clock ?? systemClock(),
+    opts?.merchantProcessor ?? validMerchantProcessor(),
+    opts?.ledger ?? new Ledger(),
+    opts?.contactBook ?? validContactBook()
   );
 }
 
@@ -84,11 +92,11 @@ export function nonEmptyCart(): Cart {
 }
 
 export function unexpiredCreditCard(): CreditCard {
-  return new CreditCard({ month: 1, year: 9999 });
+  return new CreditCard("cc number", "cc owner", { month: 1, year: 9999 });
 }
 
 export function expiredCreditCard(): CreditCard {
-  return new CreditCard({ month: 1, year: 1900 });
+  return new CreditCard("cc number", "cc owner", { month: 1, year: 1900 });
 }
 
 export function validDate(): Date {

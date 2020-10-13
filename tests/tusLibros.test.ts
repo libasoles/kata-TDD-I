@@ -1,5 +1,5 @@
 import { ISBN } from "../src/Book";
-import { Ledger, Purchase } from "../src/Ledger";
+import { Purchase } from "../src/Ledger";
 import { TusLibros } from "../src/TusLibros";
 import {
   anotherValidISBN,
@@ -9,11 +9,8 @@ import {
   invalidISBN,
   invalidPassword,
   newTusLibros,
-  systemClock,
   unexpiredCreditCard,
-  validCatalog,
   validClientId,
-  validContactBook,
   validISBN,
   validMerchantProcessor,
   validPassword,
@@ -118,6 +115,25 @@ describe("TusLibros", () => {
       TusLibros.CART_DOES_NOT_EXIST
     );
   });
+  test("A user cannot add a book to an expired cart", () => {
+    const now = new Date();
+    const clock = {
+      now() {
+        return now;
+      },
+    };
+    const store = newTusLibros({ clock });
+    const clientId = validClientId();
+    const password = validPassword();
+    const isbn = validISBN();
+    const cartId = store.createCart(clientId, password);
+
+    clock.now = () => new Date(+now + 30 * 1000 * 60 + 1);
+
+    expect(() => store.addToCart(cartId, isbn, 1)).toThrowError(
+      TusLibros.EXPIRED_CART
+    );
+  });
   test("A user can list his cart's content", () => {
     const store = newTusLibros();
     const clientId = validClientId();
@@ -160,6 +176,29 @@ describe("TusLibros", () => {
       })
     ).toThrowError(TusLibros.CART_DOES_NOT_EXIST);
   });
+  test("A user cannot list an expired cart", () => {
+    const now = new Date();
+    const clock = {
+      now() {
+        return now;
+      },
+    };
+    const store = newTusLibros({ clock });
+    const clientId = validClientId();
+    const password = validPassword();
+    const isbn = validISBN();
+    const cartId = store.createCart(clientId, password);
+
+    store.addToCart(cartId, isbn, 1);
+
+    clock.now = () => new Date(+now + 30 * 1000 * 60 + 1);
+
+    expect(() =>
+      store.cartEntriesDo(cartId, () => {
+        throw new Error("This is an error!");
+      })
+    ).toThrowError(TusLibros.EXPIRED_CART);
+  });
   test("A user cannot checkout an empty cart", () => {
     const store = newTusLibros();
     const clientId = validClientId();
@@ -195,13 +234,7 @@ describe("TusLibros", () => {
   });
   test("A user can checkout his cart", () => {
     const merchantProcessor = validMerchantProcessor();
-    const store = new TusLibros(
-      validCatalog(),
-      systemClock(),
-      merchantProcessor,
-      new Ledger(),
-      validContactBook()
-    );
+    const store = newTusLibros({ merchantProcessor });
     const clientId = validClientId();
     const password = validPassword();
     const creditCard = unexpiredCreditCard();
@@ -212,6 +245,28 @@ describe("TusLibros", () => {
 
     expect(store.checkOutCart(cartId, creditCard)).toBe(
       merchantProcessor.lastTransactionId
+    );
+  });
+  test("A user cannot checkout an expired cart", () => {
+    const now = new Date();
+    const clock = {
+      now() {
+        return now;
+      },
+    };
+    const store = newTusLibros({ clock });
+    const clientId = validClientId();
+    const password = validPassword();
+    const isbn = validISBN();
+    const cartId = store.createCart(clientId, password);
+    const creditCard = unexpiredCreditCard();
+
+    store.addToCart(cartId, isbn, 1);
+
+    clock.now = () => new Date(+now + 30 * 1000 * 60 + 1);
+
+    expect(() => store.checkOutCart(cartId, creditCard)).toThrowError(
+      TusLibros.EXPIRED_CART
     );
   });
   test("An invalid client cannot list purchases", () => {

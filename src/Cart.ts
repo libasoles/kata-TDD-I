@@ -57,7 +57,7 @@ export default class Cart {
           ? [book, summary[book.isbn][1] + 1]
           : [book, 1],
       }),
-      {}
+      {} as Record<ISBN, [Book, number]>
     );
     Object.entries(summary).forEach(([, entry]) => action(...entry));
   }

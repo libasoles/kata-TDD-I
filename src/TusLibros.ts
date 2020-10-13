@@ -21,8 +21,9 @@ export class TusLibros {
   static USER_ALREADY_HAS_A_CART = "User already has a cart";
   static CART_DOES_NOT_EXIST = "Cart does not exist";
   static CANNOT_CHECKOUT_EMPTY_CART = "Cannot checkout empty cart";
+  static EXPIRED_CART = "Cart expired";
 
-  private readonly carts: Map<CartId, [Client, Cart]> = new Map();
+  private readonly carts: Map<CartId, [Client, Cart, Date]> = new Map();
 
   constructor(
     private readonly catalog: Catalog,
@@ -39,7 +40,7 @@ export class TusLibros {
     }
     const client = this.contactBook.findClientWithId(clientId);
     const cartId = clientId;
-    this.carts.set(cartId, [client, new Cart(this.catalog)]);
+    this.carts.set(cartId, [client, new Cart(this.catalog), this.clock.now()]);
     return clientId;
   }
 
@@ -96,6 +97,9 @@ export class TusLibros {
   private findCart(cartId: CartId) {
     const cart = this.carts.get(cartId);
     if (!cart) throw new Error(TusLibros.CART_DOES_NOT_EXIST);
+    if (+cart[2] + 30 * 1000 * 60 < +this.clock.now())
+      throw new Error(TusLibros.EXPIRED_CART);
+    cart[2] = this.clock.now();
     return cart;
   }
 
