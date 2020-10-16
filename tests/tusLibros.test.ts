@@ -9,7 +9,9 @@ import {
   invalidISBN,
   invalidPassword,
   newTusLibros,
+  unavailableMerchantProcessor,
   unexpiredCreditCard,
+  validBookPrice,
   validClientId,
   validISBN,
   validMerchantProcessor,
@@ -317,5 +319,37 @@ describe("TusLibros", () => {
     });
 
     expect(purchases).toHaveLength(2);
+  });
+  test("If a purchase fails because of the merchant processor it should be processed later", () => {
+    const merchantProcessor = unavailableMerchantProcessor();
+    const store = newTusLibros({ merchantProcessor });
+    const clientId = validClientId();
+    const password = validPassword();
+    const cartId = store.createCart(clientId, password);
+
+    store.addToCart(cartId, validISBN(), 2);
+
+    expect(() =>
+      store.checkOutCart(cartId, unexpiredCreditCard())
+    ).toThrowError(TusLibros.PAYMENT_PENDING);
+
+    const purchases: Purchase[] = [];
+    store.purchasesDo(clientId, password, (purchase) => {
+      purchases.push(purchase);
+    });
+
+    expect(purchases).toHaveLength(0);
+
+    merchantProcessor.available();
+    store.processPendingPayments();
+
+    store.purchasesDo(clientId, password, (purchase) => {
+      purchases.push(purchase);
+    });
+
+    expect(purchases).toHaveLength(1);
+
+    const purchase = purchases[0];
+    expect(purchase.receipt.total).toEqual(validBookPrice() * 2);
   });
 });

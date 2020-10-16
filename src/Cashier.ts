@@ -8,8 +8,11 @@ export interface Receipt {
 }
 
 export class Cashier {
-  public static CART_MUST_NOT_BE_EMPTY = "Cart must not be empty";
-  public static CREDIT_CARD_IS_EXPIRED = "Credit card is expired";
+  static CART_MUST_NOT_BE_EMPTY = "Cart must not be empty";
+  static CREDIT_CARD_IS_EXPIRED = "Credit card is expired";
+  static CART_ALREADY_PROCESSED = "Cart already processed";
+
+  private receipt?: Receipt;
 
   constructor(
     private readonly cart: Cart,
@@ -33,9 +36,17 @@ export class Cashier {
     }
   }
 
+  private assertHasntAlreadyCheckout() {
+    if (this.receipt) {
+      throw new Error(Cashier.CART_ALREADY_PROCESSED);
+    }
+  }
+
   checkOut(): Receipt {
+    this.assertHasntAlreadyCheckout();
     const total = this.cart.total();
     const transactionId = this.merchantProcessor.debit(this.creditCard, total);
-    return { transactionId, total };
+    this.receipt = { transactionId, total };
+    return this.receipt;
   }
 }

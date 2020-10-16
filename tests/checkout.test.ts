@@ -1,46 +1,27 @@
 import {
-  newCart,
-  validBook,
   invalidDate,
-  anotherValidBook,
   validBookPrice,
   anotherValidBookPrice,
   nonEmptyCart,
   unexpiredCreditCard,
   expiredCreditCard,
-  validDate,
   unavailableMerchantProcessor,
   merchantProcessorThatRejectsCard,
   validMerchantProcessor,
+  newCashier,
 } from "./testObjects";
 import { Cashier } from "../src/Cashier";
 import { MerchantProcessor } from "../src/MerchantProcessor";
 
 describe("Checkout process", () => {
   test("Cannot check out with an empty cart", () => {
-    const cart = newCart();
-
-    expect(() => {
-      new Cashier(
-        cart,
-        unexpiredCreditCard(),
-        validDate(),
-        validMerchantProcessor()
-      );
-    }).toThrowError(Cashier.CART_MUST_NOT_BE_EMPTY);
+    expect(() => newCashier()).toThrowError(Cashier.CART_MUST_NOT_BE_EMPTY);
   });
 
   test("When check out, the total must be correct", () => {
-    const cart = newCart();
-    cart.add(validBook(), 2);
-    cart.add(anotherValidBook(), 1);
+    const cart = nonEmptyCart();
 
-    const cashier = new Cashier(
-      cart,
-      unexpiredCreditCard(),
-      validDate(),
-      validMerchantProcessor()
-    );
+    const cashier = newCashier({ cart });
     const receipt = cashier.checkOut();
 
     expect(receipt.total).toBe(
@@ -52,60 +33,81 @@ describe("Checkout process", () => {
     const cart = nonEmptyCart();
     const creditCard = expiredCreditCard();
 
-    expect(() => {
-      new Cashier(cart, creditCard, validDate(), validMerchantProcessor());
-    }).toThrowError(Cashier.CREDIT_CARD_IS_EXPIRED);
+    expect(() => newCashier({ cart, creditCard })).toThrowError(
+      Cashier.CREDIT_CARD_IS_EXPIRED
+    );
   });
 
   test("Can check out with an expired credit card if the date is correct", () => {
     const cart = nonEmptyCart();
     const creditCard = expiredCreditCard();
+    const today = invalidDate();
+    const merchantProcessor = validMerchantProcessor();
+    const cashier = newCashier({ cart, creditCard, today, merchantProcessor });
 
-    new Cashier(cart, creditCard, invalidDate(), validMerchantProcessor());
+    const receipt = cashier.checkOut();
+
+    expect(merchantProcessor.creditCardUsed).toBe(creditCard);
+    expect(merchantProcessor.totalCharged).toBe(receipt.total);
+    expect(merchantProcessor.lastTransactionId).toBe(receipt.transactionId);
+  });
+
+  test("Cannot check out twice", () => {
+    const cart = nonEmptyCart();
+    const creditCard = unexpiredCreditCard();
+    const merchantProcessor = validMerchantProcessor();
+    const cashier = newCashier({ cart, creditCard, merchantProcessor });
+
+    const receipt = cashier.checkOut();
+
+    expect(merchantProcessor.creditCardUsed).toBe(creditCard);
+    expect(merchantProcessor.totalCharged).toBe(receipt.total);
+    expect(merchantProcessor.lastTransactionId).toBe(receipt.transactionId);
+
+    expect(() => cashier.checkOut()).toThrowError(
+      Cashier.CART_ALREADY_PROCESSED
+    );
   });
 
   test("Cannot checkout when Merchant Processor is down", () => {
     const cart = nonEmptyCart();
     const creditCard = unexpiredCreditCard();
     const merchantProcessor = unavailableMerchantProcessor();
-    const cashier = new Cashier(
+    const cashier = newCashier({
       cart,
       creditCard,
-      validDate(),
-      merchantProcessor
-    );
+      merchantProcessor,
+    });
 
-    expect(() => {
-      cashier.checkOut();
-    }).toThrowError(MerchantProcessor.MERCHANT_PROCESSOR_IS_NOT_AVAILABLE);
+    expect(() => cashier.checkOut()).toThrowError(
+      MerchantProcessor.MERCHANT_PROCESSOR_IS_NOT_AVAILABLE
+    );
   });
 
   test("Merchant process rejects invalid credit card", () => {
     const cart = nonEmptyCart();
     const creditCard = unexpiredCreditCard();
     const merchantProcessor = merchantProcessorThatRejectsCard();
-    const cashier = new Cashier(
+    const cashier = newCashier({
       cart,
       creditCard,
-      validDate(),
-      merchantProcessor
-    );
+      merchantProcessor,
+    });
 
-    expect(() => {
-      cashier.checkOut();
-    }).toThrowError(MerchantProcessor.CREDIT_CARD_REJECTED);
+    expect(() => cashier.checkOut()).toThrowError(
+      MerchantProcessor.CREDIT_CARD_REJECTED
+    );
   });
 
   test("Payment succeeded", () => {
     const cart = nonEmptyCart();
     const creditCard = unexpiredCreditCard();
     const merchantProcessor = validMerchantProcessor();
-    const cashier = new Cashier(
+    const cashier = newCashier({
       cart,
       creditCard,
-      validDate(),
-      merchantProcessor
-    );
+      merchantProcessor,
+    });
 
     const receipt = cashier.checkOut();
 

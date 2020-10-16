@@ -13,6 +13,31 @@ export type CartId = string;
 export type ClientId = string;
 export type Password = string;
 
+class PendingPurchase {
+  constructor(
+    readonly client: Client,
+    readonly cart: Cart,
+    readonly creditCard: CreditCard
+  ) {}
+}
+
+class Session {
+  private lastAtiveAt: Date;
+  constructor(
+    readonly client: Client,
+    readonly cart: Cart,
+    readonly clock: Clock
+  ) {
+    this.lastAtiveAt = clock.now();
+  }
+  isExpired() {
+    return +this.lastAtiveAt + 30 * 1000 * 60 < +this.clock.now();
+  }
+  touch() {
+    this.lastAtiveAt = this.clock.now();
+  }
+}
+
 export class TusLibros {
   static INVALID_CLIENT = ContactBook.INVALID_CLIENT;
   static BOOK_NOT_IN_CATALOG = Catalog.BOOK_NOT_IN_CATALOG;
@@ -22,8 +47,10 @@ export class TusLibros {
   static CART_DOES_NOT_EXIST = "Cart does not exist";
   static CANNOT_CHECKOUT_EMPTY_CART = "Cannot checkout empty cart";
   static EXPIRED_CART = "Cart expired";
+  static PAYMENT_PENDING = "Payment pending";
 
-  private readonly carts: Map<CartId, [Client, Cart, Date]> = new Map();
+  private readonly sessions: Map<CartId, Session> = new Map();
+  private pendingPurchases: Array<PendingPurchase> = [];
 
   constructor(
     private readonly catalog: Catalog,
@@ -35,24 +62,25 @@ export class TusLibros {
 
   createCart(clientId: ClientId, password: Password): CartId {
     this.assertClient(clientId, password);
-    if (this.carts.has(clientId)) {
-      throw new Error(TusLibros.USER_ALREADY_HAS_A_CART);
-    }
+    this.assertClientHasNoCart(clientId);
     const client = this.contactBook.findClientWithId(clientId);
     const cartId = clientId;
-    this.carts.set(cartId, [client, new Cart(this.catalog), this.clock.now()]);
+    this.sessions.set(
+      cartId,
+      new Session(client, new Cart(this.catalog), this.clock)
+    );
     return clientId;
   }
 
   isCartEmpty(cartId: CartId): boolean {
     this.assertCartExists(cartId);
-    return this.findCart(cartId)[1].isEmpty();
+    return this.findSession(cartId).cart.isEmpty();
   }
 
   addToCart(cartId: CartId, isbn: ISBN, quantity: number): void {
     this.assertCartExists(cartId);
     const book = this.catalog.findByISBN(isbn);
-    this.findCart(cartId)[1].add(book, quantity);
+    this.findSession(cartId).cart.add(book, quantity);
   }
 
   cartEntriesDo(
@@ -60,24 +88,20 @@ export class TusLibros {
     action: (book: Book, quantity: number) => void
   ): void {
     this.assertCartExists(cartId);
-    this.findCart(cartId)[1].entriesDo(action);
+    this.findSession(cartId).cart.entriesDo(action);
   }
 
   checkOutCart(cartId: CartId, creditCard: CreditCard): TransactionId {
     if (this.isCartEmpty(cartId)) {
       throw new Error(TusLibros.CANNOT_CHECKOUT_EMPTY_CART);
     }
-    const [client, cart] = this.findCart(cartId);
-    const cashier = new Cashier(
-      cart,
-      creditCard,
-      this.clock.now(),
-      this.merchantProcessor
-    );
-    const receipt = cashier.checkOut();
-    this.ledger.regiterPurchase(client, cart, receipt);
-    this.carts.delete(cartId);
-    return receipt.transactionId;
+    const { client, cart } = this.findSession(cartId);
+    try {
+      const receipt = this.processPayment(client, cart, creditCard);
+      return receipt.transactionId;
+    } finally {
+      this.sessions.delete(cartId);
+    }
   }
 
   purchasesDo(
@@ -90,24 +114,70 @@ export class TusLibros {
     this.ledger.purchasesOfClientDo(client, action);
   }
 
+  processPendingPayments(): void {
+    const batch = this.pendingPurchases;
+    this.pendingPurchases = [];
+    for (const session of batch) {
+      try {
+        this.processPayment(session.client, session.cart, session.creditCard);
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  private processPayment(client: Client, cart: Cart, creditCard: CreditCard) {
+    try {
+      const cashier = new Cashier(
+        cart,
+        creditCard,
+        this.clock.now(),
+        this.merchantProcessor
+      );
+      const receipt = cashier.checkOut();
+      this.ledger.regiterPurchase(client, cart, receipt);
+      return receipt;
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        e.message === MerchantProcessor.MERCHANT_PROCESSOR_IS_NOT_AVAILABLE
+      ) {
+        this.pendingPurchases.push(
+          new PendingPurchase(client, cart, creditCard)
+        );
+        throw new Error(TusLibros.PAYMENT_PENDING);
+      }
+      throw e;
+    }
+  }
+
   private findClientWithId(clientId: ClientId) {
     return this.contactBook.findClientWithId(clientId);
   }
 
-  private findCart(cartId: CartId) {
-    const cart = this.carts.get(cartId);
-    if (!cart) throw new Error(TusLibros.CART_DOES_NOT_EXIST);
-    if (+cart[2] + 30 * 1000 * 60 < +this.clock.now())
+  private findSession(cartId: CartId): Session {
+    const session = this.sessions.get(cartId);
+    if (!session) throw new Error(TusLibros.CART_DOES_NOT_EXIST);
+    if (session.isExpired()) {
       throw new Error(TusLibros.EXPIRED_CART);
-    cart[2] = this.clock.now();
-    return cart;
+    }
+    session.touch();
+    return session;
   }
 
   private assertCartExists(cartId: CartId) {
-    if (!this.carts.has(cartId)) throw new Error(TusLibros.CART_DOES_NOT_EXIST);
+    if (!this.sessions.has(cartId)) {
+      throw new Error(TusLibros.CART_DOES_NOT_EXIST);
+    }
   }
 
   private assertClient(clientId: ClientId, password: Password) {
     this.contactBook.verifyClientCredentials(clientId, password);
+  }
+
+  private assertClientHasNoCart(clientId: ClientId) {
+    if (this.sessions.has(clientId)) {
+      throw new Error(TusLibros.USER_ALREADY_HAS_A_CART);
+    }
   }
 }

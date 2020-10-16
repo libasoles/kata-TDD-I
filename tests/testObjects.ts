@@ -7,6 +7,7 @@ import { CartId, ClientId, Password, TusLibros } from "../src/TusLibros";
 import { Clock } from "../src/Clock";
 import { Ledger } from "../src/Ledger";
 import { ContactBook } from "../src/ContactBook";
+import { Cashier } from "../src/Cashier";
 
 export function validISBN(): ISBN {
   return "<a valid ISBN>";
@@ -107,11 +108,13 @@ export function invalidDate(): Date {
   return new Date(1899, 1, 1);
 }
 
-export function validMerchantProcessor(): MerchantProcessor & {
+export type InspectableMerchantProcessor = MerchantProcessor & {
   creditCardUsed: CreditCard | null;
   totalCharged: number | null;
   lastTransactionId: TransactionId | null;
-} {
+};
+
+export function validMerchantProcessor(): InspectableMerchantProcessor {
   return {
     creditCardUsed: null,
     totalCharged: null,
@@ -125,9 +128,26 @@ export function validMerchantProcessor(): MerchantProcessor & {
   };
 }
 
-export function unavailableMerchantProcessor(): MerchantProcessor {
+export type UnrelialableMerchantProcessor = InspectableMerchantProcessor & {
+  available(): void;
+};
+
+export function unavailableMerchantProcessor(): UnrelialableMerchantProcessor {
+  let isAvailable = false;
   return {
-    debit(_creditCard: CreditCard, _total: number) {
+    creditCardUsed: null,
+    totalCharged: null,
+    lastTransactionId: null,
+    available() {
+      isAvailable = true;
+    },
+    debit(creditCard: CreditCard, total: number) {
+      if (isAvailable) {
+        this.creditCardUsed = creditCard;
+        this.totalCharged = total;
+        this.lastTransactionId = "<valid transaction id>";
+        return this.lastTransactionId;
+      }
       throw Error(MerchantProcessor.MERCHANT_PROCESSOR_IS_NOT_AVAILABLE);
     },
   };
@@ -159,4 +179,18 @@ export function validPassword(): Password {
 
 export function invalidCartId(): CartId {
   return invalidClientId();
+}
+
+export function newCashier(opts?: {
+  cart?: Cart;
+  creditCard?: CreditCard;
+  today?: Date;
+  merchantProcessor?: MerchantProcessor;
+}): Cashier {
+  return new Cashier(
+    opts?.cart ?? newCart(),
+    opts?.creditCard ?? unexpiredCreditCard(),
+    opts?.today ?? validDate(),
+    opts?.merchantProcessor ?? validMerchantProcessor()
+  );
 }
